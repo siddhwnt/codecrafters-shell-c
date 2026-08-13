@@ -9,9 +9,11 @@ int main(int argc, char *argv[]) {
   // TODO: Uncomment the code below to pass the first stage
 
   char command[30];
+
+  printf("$ ");
   scanf("%s", command);
 
-  printf("%s: command not found", command);
+  printf("%s: command not found\n", command);
 
   return 0;
 }
