@@ -2,7 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
   // Flush after every printf
   setbuf(stdout, NULL);
 
@@ -10,10 +11,13 @@ int main(int argc, char *argv[]) {
 
   char command[30];
 
-  printf("$ ");
-  scanf("%s", command);
+  while (1)
+  {
+    printf("$ ");
+    scanf("%s", command);
 
-  printf("%s: command not found\n", command);
+    printf("%s: command not found\n", command);
+  }
 
   return 0;
 }
