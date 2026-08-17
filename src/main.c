@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
 
     if (strcmp(command, "echo") == 0)
     {
-      printf("%s\n", text + i + 1);
+      printf("%s", text + i + 1);
       continue;
     }
 
