@@ -16,6 +16,9 @@ int main(int argc, char *argv[])
     printf("$ ");
     scanf("%s", command);
 
+    if (strcmp(command, "exit") == 0)
+      break;
+
     printf("%s: command not found\n", command);
   }
 
