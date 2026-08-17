@@ -9,12 +9,28 @@ int main(int argc, char *argv[])
 
   // TODO: Uncomment the code below to pass the first stage
 
-  char command[30];
+  char text[100];
+  char command[20];
 
   while (1)
   {
     printf("$ ");
-    scanf("%s", command);
+    fgets(text, sizeof(text), stdin);
+    int i = 0;
+
+    while (text[i] != ' ' && text[i] != '\n' && text[i] != '\0')
+    {
+      i++;
+    }
+
+    memcpy(command, text, i);
+    command[i] = '\0';
+
+    if (strcmp(command, "echo") == 0)
+    {
+      printf("%s\n", text + i + 1);
+      continue;
+    }
 
     printf("%s: command not found\n", command);
   }
