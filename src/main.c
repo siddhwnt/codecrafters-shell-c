@@ -32,6 +32,11 @@ int main(int argc, char *argv[])
       continue;
     }
 
+    if (strcmp(command, "exit") == 0)
+    {
+      return 0;
+    }
+
     printf("%s: command not found\n", command);
   }
 
