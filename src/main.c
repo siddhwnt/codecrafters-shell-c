@@ -119,6 +119,11 @@ void parseCommand(char *command, char *rest)
     {
       return;
     }
+    else
+    {
+      printf("%s: not found\n", rest);
+      return;
+    }
   }
   printf("%s: command not found\n", command);
 }
