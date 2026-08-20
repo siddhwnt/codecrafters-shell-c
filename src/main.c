@@ -10,7 +10,9 @@
 char *builtin_words[] = {
     "echo",
     "type",
-    "exit"};
+    "exit",
+    "pwd"
+  };
 
 int builtin_words_count = sizeof(builtin_words) / sizeof(builtin_words[0]);
 
