@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include "my_commands.h"
 
 // Declarations for builtin words
 char *builtin_words[] = {
@@ -121,25 +122,25 @@ void handlePathExecutable(char *command, char *rest)
   strcat(command_location, command);
 
   // Get args from *rest
-  
+
   char *args[100];
   int argc = 0;
   args[argc++] = command;
-  
+
   char *token = strtok(rest, " ");
-  
+
   while (token != NULL)
   {
     args[argc++] = token;
     token = strtok(NULL, " ");
   }
   args[argc] = NULL;
-  
+
   // Start child process to execute command;
-  
+
   int command_id = fork();
-  
-  if (command_id == 0)          // Child process
+
+  if (command_id == 0) // Child process
   {
     execv(command_location, args);
 
@@ -147,12 +148,10 @@ void handlePathExecutable(char *command, char *rest)
     perror("execv");
     exit(EXIT_FAILURE);
   }
-  else                          // Parent process
+  else // Parent process
   {
     wait(NULL);
   }
-
-
 }
 
 void parseCommand(char *command, char *rest)
@@ -202,6 +201,12 @@ void parseCommand(char *command, char *rest)
     return;
   }
 
+  // Check if custom command (implemented in my_commands.c)
+  if (find_command(command) != NULL)
+  {
+    handleCommand(command, rest);
+  }
+
   printf("%s: command not found\n", command);
 }
 
@@ -240,7 +245,10 @@ int main(int argc, char *argv[])
   while (1)
   {
     printf("$ ");
-    fgets(text, sizeof(text), stdin);
+    if (fgets(text, sizeof(text), stdin) == NULL)
+    {
+      break;
+    }
     text[strcspn(text, "\n")] = '\0';
     parseText(text);
   }
