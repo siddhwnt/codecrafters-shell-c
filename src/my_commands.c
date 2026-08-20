@@ -8,9 +8,12 @@
 
 void handle_pwd(char *args[])
 {
-    char *pwd_buffer;
-    char *getcwd(char *pwd_buffer, size_t size);
-    printf("%s", pwd_buffer);
+    char pwd_buffer[4096];
+
+    if (getcwd(pwd_buffer, sizeof(pwd_buffer)) != NULL)
+    {
+        printf("%s\n", pwd_buffer);
+    }
 }
 
 Command my_commands[] = {
