@@ -64,7 +64,7 @@ bool isInPath(char *rest)
   while (token != NULL)
   {
     path_locations[i] = token;
-    token = strtok(NULL, ";");
+    token = strtok(NULL, ":");
     // printf("%s\n", path_locations[i]);
     i++;
   }
@@ -74,7 +74,7 @@ bool isInPath(char *rest)
     // Get exact location
     char rest_location[4096];
     strcpy(rest_location, path_locations[j]);
-    strcat(rest_location, "\\");
+    strcat(rest_location, "/");
     strcat(rest_location, rest);
 
 
