@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
 
 const char *path;
 
@@ -14,17 +15,17 @@ int builtin_words_count = sizeof(builtin_words) / sizeof(builtin_words[0]);
 
 int isFileExists(const char *path)
 {
-    // Try to open file
-    FILE *fptr = fopen(path, "r");
+  // Try to open file
+  FILE *fptr = fopen(path, "r");
 
-    // If file does not exists 
-    if (fptr == NULL)
-        return 0;
+  // If file does not exists
+  if (fptr == NULL)
+    return 0;
 
-    // File exists hence close file and return true.
-    fclose(fptr);
+  // File exists hence close file and return true.
+  fclose(fptr);
 
-    return 1;
+  return 1;
 }
 
 bool isBuiltIn(char *rest)
@@ -40,6 +41,18 @@ bool isBuiltIn(char *rest)
   }
   // printf("%s: not found\n", rest);
   return false;
+}
+
+bool isExecutable(char *filepath)
+{
+  if (access(filepath, X_OK) == 0)
+  {
+    return true;
+  }
+  else
+  {
+    return false;
+  }
 }
 
 bool isInPath(char *rest)
@@ -77,12 +90,11 @@ bool isInPath(char *rest)
     strcat(rest_location, "/");
     strcat(rest_location, rest);
 
-
     int current_size = strlen(path_locations[j]);
     // printf("Path: %s\n", path_locations[j]);
     // printf("Checking : %s\n", rest_location);
 
-    if (isFileExists(rest_location))
+    if (isFileExists(rest_location) && isExecutable(rest_location))
     {
       printf("%s is %s\n", rest, rest_location);
       return true;
