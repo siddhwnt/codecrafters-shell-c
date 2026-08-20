@@ -2,12 +2,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
 
 #include "my_commands.h"
 
 void handle_pwd(char *args[])
 {
-    printf("Handle pwd here\n");
+    char *pwd_buffer;
+    char *getcwd(char *pwd_buffer, size_t size);
+    printf("%s", pwd_buffer);
 }
 
 Command my_commands[] = {
