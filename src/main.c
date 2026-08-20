@@ -207,6 +207,7 @@ void parseCommand(char *command, char *rest)
   if (find_command(command) != NULL)
   {
     handleCommand(command, rest);
+    return;
   }
 
   printf("%s: command not found\n", command);
