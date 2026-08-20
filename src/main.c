@@ -84,7 +84,7 @@ bool isInPath(char *rest)
 
     if (isFileExists(rest_location))
     {
-      printf("%s is %s\n", rest, path_locations[j]);
+      printf("%s is %s\n", rest, rest_location);
       return true;
     }
   }
