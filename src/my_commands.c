@@ -55,7 +55,7 @@ void handle_cd(char *args[])
     // cd ~
     if (strcmp(directory, "~") == 0)
     {
-        directory = program_dir;
+        directory = getenv("HOME");
     }
 
     if (chdir(directory) != 0)
