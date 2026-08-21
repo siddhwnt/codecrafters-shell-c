@@ -4,17 +4,21 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <sys/wait.h>
-#include "my_commands.h"
 
-// Declarations for builtin words
-char *builtin_words[] = {
+#include "my_commands.h"
+#include "main.h"
+
+const char *builtin_words[] = {
     "echo",
     "type",
     "exit",
-    "pwd"
-  };
+    "pwd",
+    "cd"
+};
 
-int builtin_words_count = sizeof(builtin_words) / sizeof(builtin_words[0]);
+const size_t builtin_words_count = sizeof(builtin_words) / sizeof(builtin_words[0]);
+
+static char path_copy[4096];
 
 // Global variables for PATH
 const char *path;
@@ -30,9 +34,6 @@ void setUpPath()
   path = getenv("PATH");
   int path_size = strlen(path);
 
-  // printf("PATH = %s\n", path);
-  char path_copy[4096];
-
   strcpy(path_copy, path);
 
   // Seperate different paths in PATH
@@ -40,10 +41,8 @@ void setUpPath()
 
   while (token != NULL)
   {
-    path_locations[path_count] = token;
+    path_locations[path_count++] = token;
     token = strtok(NULL, ":");
-    // printf("%s\n", path_locations[i]);
-    path_count++;
   }
 }
 
@@ -107,7 +106,7 @@ bool isInPath(char *rest)
     // printf("Path: %s\n", path_locations[j]);
     // printf("Checking : %s\n", rest_location);
 
-    if (isFileExists(rest_location) && isExecutable(rest_location))
+    if (isExecutable(rest_location))
     {
       current_path_count = j;
       return true;
@@ -204,7 +203,7 @@ void parseCommand(char *command, char *rest)
   }
 
   // Check if custom command (implemented in my_commands.c)
-  if (find_command(command) != NULL)
+  if (find_command(command))
   {
     handleCommand(command, rest);
     return;
@@ -245,6 +244,14 @@ int main(int argc, char *argv[])
 
   char text[100];
 
+  // Setup current directory
+
+  if (getcwd(program_dir, sizeof(program_dir)) == NULL)
+  {
+    printf("Cannot initialize current directory");
+  }
+
+  // Start shell loop
   while (1)
   {
     printf("$ ");

@@ -1,3 +1,5 @@
+extern char program_dir[4096];
+
 typedef void (*CommandHandler)(char *args[]);
 
 typedef struct
