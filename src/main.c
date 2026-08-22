@@ -115,64 +115,61 @@ bool isInPath(char *rest)
 // Handlers
 void handleEcho(char *args[])
 {
-    int i = 0;
+  int i = 0;
 
-    while (args[i] != NULL)
+  while (args[i] != NULL)
+  {
+    printf("%s", args[i]);
+
+    if (args[i + 1] != NULL)
     {
-        printf("%s", args[i]);
-
-        if (args[i + 1] != NULL)
-        {
-            printf(" ");
-        }
-
-        i++;
+      printf(" ");
     }
 
-    printf("\n");
+    i++;
+  }
+
+  printf("\n");
 }
 
-void handlePathExecutable(char *command, char *rest)
+void handlePathExecutable(char *command, char *args[])
 {
   char command_location[4096];
+
   strcpy(command_location, path_locations[current_path_count]);
   strcat(command_location, "/");
   strcat(command_location, command);
 
-  // Get args from *rest
+  char *argv[101];
 
-  char *args[100];
-  int argc = 0;
-  args[argc++] = command;
+  argv[0] = command;
 
-  char *token = strtok(rest, " ");
+  int i = 0;
 
-  while (token != NULL)
+  while (args[i] != NULL)
   {
-    args[argc++] = token;
-    token = strtok(NULL, " ");
+    argv[i + 1] = args[i];
+    i++;
   }
-  args[argc] = NULL;
 
-  // Start child process to execute command;
+  argv[i + 1] = NULL;
 
   int command_id = fork();
 
-  if (command_id == 0) // Child process
+  if (command_id == 0)
   {
-    execv(command_location, args);
+    execv(command_location, argv);
 
-    // if pexecv fails
     perror("execv");
     exit(EXIT_FAILURE);
   }
-  else // Parent process
+  else
   {
     wait(NULL);
   }
 }
 
-void parseRest(char *rest, char *args[100])
+void parseRest(char *rest, char *args[])
 {
   static char storage[100][4096];
 
@@ -264,7 +261,7 @@ void parseCommand(char *command, char *rest)
   // Handle if command in PATH
   if (isInPath(command))
   {
-    handlePathExecutable(command, rest);
+    handlePathExecutable(command, args);
     return;
   }
 
@@ -291,11 +288,20 @@ void parseText(char *text)
   memcpy(command, text, command_size);
   command[command_size] = '\0';
 
-  char *rest = text + command_size + 1;
+  char *rest;
 
-  while (*rest == ' ')
+  if (text[command_size] == '\0')
   {
-    rest++;
+    rest = text + command_size;
+  }
+  else
+  {
+    rest = text + command_size + 1;
+
+    while (*rest == ' ')
+    {
+      rest++;
+    }
   }
 
   parseCommand(command, rest);
