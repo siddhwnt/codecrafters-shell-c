@@ -13,8 +13,7 @@ const char *builtin_words[] = {
     "type",
     "exit",
     "pwd",
-    "cd"
-};
+    "cd"};
 
 const size_t builtin_words_count = sizeof(builtin_words) / sizeof(builtin_words[0]);
 
@@ -68,11 +67,9 @@ bool isBuiltIn(char *rest)
   {
     if (strcmp(builtin_words[i], rest) == 0)
     {
-      printf("%s is a shell builtin\n", rest);
       return true;
     }
   }
-  // printf("%s: not found\n", rest);
   return false;
 }
 
@@ -115,6 +112,26 @@ bool isInPath(char *rest)
   return false;
 }
 
+// Handlers
+void handleEcho(char *args[])
+{
+    int i = 0;
+
+    while (args[i] != NULL)
+    {
+        printf("%s", args[i]);
+
+        if (args[i + 1] != NULL)
+        {
+            printf(" ");
+        }
+
+        i++;
+    }
+
+    printf("\n");
+}
+
 void handlePathExecutable(char *command, char *rest)
 {
   char command_location[4096];
@@ -155,13 +172,61 @@ void handlePathExecutable(char *command, char *rest)
   }
 }
 
+void parseRest(char *rest, char *args[100])
+{
+  static char storage[100][4096];
+
+  bool inside_quotes = false;
+  int args_count = 0;
+  int arg_pos = 0;
+
+  for (int i = 0; i < 100; i++)
+  {
+    args[i] = storage[i];
+    storage[i][0] = '\0';
+  }
+
+  for (int i = 0; rest[i] != '\0'; i++)
+  {
+    char c = rest[i];
+
+    if (c == '\'')
+    {
+      inside_quotes = !inside_quotes;
+    }
+    else if (c == ' ' && !inside_quotes)
+    {
+      if (arg_pos > 0)
+      {
+        args[args_count][arg_pos] = '\0';
+        args_count++;
+        arg_pos = 0;
+      }
+    }
+    else
+    {
+      args[args_count][arg_pos++] = c;
+    }
+  }
+
+  if (arg_pos > 0)
+  {
+    args[args_count][arg_pos] = '\0';
+    args_count++;
+  }
+
+  args[args_count] = NULL;
+}
 void parseCommand(char *command, char *rest)
 {
+  // Parse rest here to handle quotes
+  char *args[100];
+  parseRest(rest, args);
 
   // Handle echo
   if (strcmp(command, "echo") == 0)
   {
-    printf("%s\n", rest);
+    handleEcho(args);
     return;
   }
 
@@ -177,6 +242,7 @@ void parseCommand(char *command, char *rest)
     // Check if builtin word
     if (isBuiltIn(rest))
     {
+      printf("%s is a shell builtin\n", rest);
       return;
     }
     else if (isInPath(rest))
@@ -215,7 +281,7 @@ void parseCommand(char *command, char *rest)
 void parseText(char *text)
 {
   int command_size = 0;
-  char command[20];
+  char command[100];
 
   while (text[command_size] != ' ' && text[command_size] != '\0')
   {
@@ -242,7 +308,7 @@ int main(int argc, char *argv[])
 
   setUpPath();
 
-  char text[100];
+  char text[4096];
 
   // Setup current directory
 
