@@ -173,7 +173,8 @@ void parseRest(char *rest, char *args[])
 {
   static char storage[100][4096];
 
-  bool inside_quotes = false;
+  bool inside_single_quotes = false;
+  bool inside_double_quotes = false;
   int args_count = 0;
   int arg_pos = 0;
 
@@ -187,22 +188,44 @@ void parseRest(char *rest, char *args[])
   {
     char c = rest[i];
 
-    if (c == '\'')
+    if (c == '"')
     {
-      inside_quotes = !inside_quotes;
-    }
-    else if (c == ' ' && !inside_quotes)
-    {
-      if (arg_pos > 0)
+      if (inside_double_quotes)
       {
-        args[args_count][arg_pos] = '\0';
-        args_count++;
-        arg_pos = 0;
+        inside_double_quotes = false;
+      }
+      else
+      {
+        inside_double_quotes = true;
       }
     }
     else
     {
-      args[args_count][arg_pos++] = c;
+
+      if (!inside_double_quotes)
+      {
+        if (c == '\'')
+        {
+          inside_single_quotes = !inside_single_quotes;
+        }
+        else if (c == ' ' && !inside_single_quotes)
+        {
+          if (arg_pos > 0)
+          {
+            args[args_count][arg_pos] = '\0';
+            args_count++;
+            arg_pos = 0;
+          }
+        }
+        else
+        {
+          args[args_count][arg_pos++] = c;
+        }
+      }
+      else
+      {
+        args[args_count][arg_pos++] = c;
+      }
     }
   }
 
