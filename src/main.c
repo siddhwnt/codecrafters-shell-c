@@ -188,56 +188,70 @@ void parseRest(char *rest, char *args[])
   {
     char c = rest[i];
 
-    if (c == '"')
+    // Inside single quotes
+    if (inside_single_quotes)
     {
-      if (inside_double_quotes)
+      if (c == '\'')
+        inside_single_quotes = false;
+        
+      else if (c == '\\')
       {
-        inside_double_quotes = false;
+        if (rest[i + 1] == '\0')
+        {
+          printf("\\ cannot be at the end\n");
+          return;
+        }
+
+        args[args_count][arg_pos++] = rest[++i];
       }
       else
+        args[args_count][arg_pos++] = c;
+
+      continue;
+    }
+
+    // Inside double quotes
+    if (inside_double_quotes)
+    {
+      if (c == '"')
+        inside_double_quotes = false;
+      else
+        args[args_count][arg_pos++] = c;
+
+      continue;
+    }
+
+    // Outside quotes
+    if (c == '\'')
+    {
+      inside_single_quotes = true;
+    }
+    else if (c == '"')
+    {
+      inside_double_quotes = true;
+    }
+    else if (c == ' ')
+    {
+      if (arg_pos > 0)
       {
-        inside_double_quotes = true;
+        args[args_count][arg_pos] = '\0';
+        args_count++;
+        arg_pos = 0;
       }
+    }
+    else if (c == '\\')
+    {
+      if (rest[i + 1] == '\0')
+      {
+        printf("\\ cannot be at the end\n");
+        return;
+      }
+
+      args[args_count][arg_pos++] = rest[++i];
     }
     else
     {
-      if (!inside_double_quotes)
-      {
-        if (c == '\'')
-        {
-          inside_single_quotes = !inside_single_quotes;
-        }
-        else if (c == ' ' && !inside_single_quotes)
-        {
-          if (arg_pos > 0)
-          {
-            args[args_count][arg_pos] = '\0';
-            args_count++;
-            arg_pos = 0;
-          }
-        }
-        else if (c == '\\')
-        {
-          if (rest[i + 1] == '\0')
-          {
-            printf("\\ cannot be at the end\n");
-            return;
-          }
-          else
-          {
-            args[args_count][arg_pos++] = rest[++i];
-            // i++;
-          }
-        }
-        else
-        {
-          args[args_count][arg_pos++] = c;
-        }
-      }
-      else
-      {
-        args[args_count][arg_pos++] = c;
-      }
+      args[args_count][arg_pos++] = c;
     }
   }
 
