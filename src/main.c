@@ -409,7 +409,8 @@ int getCommand(char *text, char *command)
       command[arg_pos++] = c;
     }
   }
-  return -1;
+  command[arg_pos] = '\0';
+  return strlen(text);
 }
 
 void parseText(char *text)
