@@ -201,7 +201,6 @@ void parseRest(char *rest, char *args[])
     }
     else
     {
-
       if (!inside_double_quotes)
       {
         if (c == '\'')
@@ -215,6 +214,19 @@ void parseRest(char *rest, char *args[])
             args[args_count][arg_pos] = '\0';
             args_count++;
             arg_pos = 0;
+          }
+        }
+        else if (c == '\\')
+        {
+          if (rest[i + 1] == '\0')
+          {
+            printf("\\ cannot be at the end\n");
+            return;
+          }
+          else
+          {
+            args[args_count][arg_pos++] = rest[++i];
+            // i++;
           }
         }
         else
