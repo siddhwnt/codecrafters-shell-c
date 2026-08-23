@@ -193,17 +193,17 @@ void parseRest(char *rest, char *args[])
     {
       if (c == '\'')
         inside_single_quotes = false;
-        
-      else if (c == '\\')
-      {
-        if (rest[i + 1] == '\0')
-        {
-          printf("\\ cannot be at the end\n");
-          return;
-        }
 
-        args[args_count][arg_pos++] = rest[++i];
-      }
+      // else if (c == '\\')
+      // {
+      //   if (rest[i + 1] == '\0')
+      //   {
+      //     printf("\\ cannot be at the end\n");
+      //     return;
+      //   }
+
+      //   args[args_count][arg_pos++] = rest[++i];
+      // }
       else
         args[args_count][arg_pos++] = c;
 
