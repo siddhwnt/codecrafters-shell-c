@@ -194,7 +194,6 @@ void parseRest(char *rest, char *args[])
       if (c == '\'')
         inside_single_quotes = false;
 
-      
       else
         args[args_count][arg_pos++] = c;
 
@@ -206,14 +205,14 @@ void parseRest(char *rest, char *args[])
     {
       if (c == '"')
         inside_double_quotes = false;
-      else if(c == '\\')
+      else if (c == '\\')
       {
         if (rest[i + 1] == '\0')
         {
           printf("\\ cannot be at the end\n");
           return;
         }
-        else if(rest[i + 1] == '\"' || rest[i + 1] == '\\' )
+        else if (rest[i + 1] == '\"' || rest[i + 1] == '\\')
         {
           // handle ", \, $, `, and newline after "\"
           args[args_count][arg_pos++] = rest[++i];
@@ -271,6 +270,7 @@ void parseRest(char *rest, char *args[])
 
   args[args_count] = NULL;
 }
+
 void parseCommand(char *command, char *rest)
 {
   // Parse rest here to handle quotes
@@ -332,18 +332,101 @@ void parseCommand(char *command, char *rest)
   printf("%s: command not found\n", command);
 }
 
+int getCommand(char *text, char *command)
+{
+  bool inside_single_quotes = false, inside_double_quotes = false;
+  int arg_pos = 0;
+  for (int i = 0; i < strlen(text); i++)
+  {
+    char c = text[i];
+
+    // Inside single quotes
+    if (inside_single_quotes)
+    {
+      if (c == '\'')
+        inside_single_quotes = false;
+
+      else
+        command[arg_pos++] = c;
+
+      continue;
+    }
+
+    // Inside double quotes
+    if (inside_double_quotes)
+    {
+      if (c == '"')
+        inside_double_quotes = false;
+      else if (c == '\\')
+      {
+        if (text[i + 1] == '\0')
+        {
+          printf("\\ cannot be at the end\n");
+          return -1;
+        }
+        else if (text[i + 1] == '\"' || text[i + 1] == '\\')
+        {
+          // handle ", \, $, `, and newline after "\"
+          command[arg_pos++] = text[++i];
+        }
+        else
+        {
+          // handle other special characters after "\"
+        }
+      }
+      else
+        command[arg_pos++] = c;
+
+      continue;
+    }
+
+    // Outside quotes
+    if (c == '\'')
+    {
+      inside_single_quotes = true;
+    }
+    else if (c == '"')
+    {
+      inside_double_quotes = true;
+    }
+    else if (c == ' ')
+    {
+      command[arg_pos] = '\0';
+      return i;
+    }
+    else if (c == '\\')
+    {
+      if (text[i + 1] == '\0')
+      {
+        printf("\\ cannot be at the end\n");
+        return -1;
+      }
+
+      command[arg_pos++] = text[++i];
+    }
+    else
+    {
+      command[arg_pos++] = c;
+    }
+  }
+  return -1;
+}
+
 void parseText(char *text)
 {
-  int command_size = 0;
+
+  // char* command =
+
   char command[100];
 
-  while (text[command_size] != ' ' && text[command_size] != '\0')
+  int command_size = getCommand(text, command);
+  if (command_size == -1)
   {
-    command_size++;
+    printf("Something went wrong in command parsing\n");
+    return;
   }
 
-  memcpy(command, text, command_size);
-  command[command_size] = '\0';
+  // command[command_size] = '\0';
 
   char *rest;
 
