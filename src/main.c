@@ -7,6 +7,7 @@
 
 #include "my_commands.h"
 #include "main.h"
+#include <fcntl.h>
 
 const char *builtin_words[] = {
     "echo",
@@ -27,6 +28,11 @@ int path_count = 0;
 // current_path_count is for getting the location
 // of the command being used in isInPath() function
 int current_path_count;
+
+// File redirection
+bool isFileRedirected = false;
+char *redirect_file = NULL;
+static char redirect_storage[4096];
 
 void setUpPath()
 {
@@ -113,26 +119,28 @@ bool isInPath(char *rest)
 }
 
 // Handlers
-void handleEcho(char *args[])
+char *handleEcho(char *args[])
 {
-  int i = 0;
+    static char output[4096];
+    output[0] = '\0';
 
-  while (args[i] != NULL)
-  {
-    printf("%s", args[i]);
+    int i = 0;
 
-    if (args[i + 1] != NULL)
+    while (args[i] != NULL)
     {
-      printf(" ");
+        strcat(output, args[i]);
+
+        if (args[i + 1] != NULL)
+            strcat(output, " ");
+
+        i++;
     }
 
-    i++;
-  }
-
-  printf("\n");
+    return output;
 }
 
-void handlePathExecutable(char *command, char *args[])
+
+void handlePathExecutable(char *command, char *args[], char *redirect_file)
 {
   char command_location[4096];
 
@@ -145,7 +153,6 @@ void handlePathExecutable(char *command, char *args[])
   argv[0] = command;
 
   int i = 0;
-
   while (args[i] != NULL)
   {
     argv[i + 1] = args[i];
@@ -158,6 +165,26 @@ void handlePathExecutable(char *command, char *args[])
 
   if (command_id == 0)
   {
+    if (redirect_file != NULL)
+    {
+      int fd = open(redirect_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+      if (fd == -1)
+      {
+        perror("open");
+        exit(EXIT_FAILURE);
+      }
+
+      if (dup2(fd, STDOUT_FILENO) == -1)
+      {
+        perror("dup2");
+        close(fd);
+        exit(EXIT_FAILURE);
+      }
+
+      close(fd);
+    }
+
     execv(command_location, argv);
 
     perror("execv");
@@ -172,17 +199,16 @@ void handlePathExecutable(char *command, char *args[])
 void parseRest(char *rest, char *args[])
 {
   static char storage[100][4096];
-
-  bool inside_single_quotes = false;
-  bool inside_double_quotes = false;
-  int args_count = 0;
-  int arg_pos = 0;
-
   for (int i = 0; i < 100; i++)
   {
     args[i] = storage[i];
     storage[i][0] = '\0';
   }
+
+  bool inside_single_quotes = false;
+  bool inside_double_quotes = false;
+  int args_count = 0;
+  int arg_pos = 0;
 
   for (int i = 0; rest[i] != '\0'; i++)
   {
@@ -256,10 +282,65 @@ void parseRest(char *rest, char *args[])
 
       args[args_count][arg_pos++] = rest[++i];
     }
+
+    else if (c == '>')
+    {
+      isFileRedirected = true;
+      i++;
+
+      while (rest[i] == ' ')
+        i++;
+
+      int redirect_pos = 0;
+      bool single = false;
+      bool double_quote = false;
+
+      while (rest[i] != '\0')
+      {
+        c = rest[i];
+
+        if (single)
+        {
+          if (c == '\'')
+            single = false;
+          else
+            redirect_storage[redirect_pos++] = c;
+        }
+        else if (double_quote)
+        {
+          if (c == '"')
+            double_quote = false;
+          else
+            redirect_storage[redirect_pos++] = c;
+        }
+        else
+        {
+          if (c == '\'')
+            single = true;
+          else if (c == '"')
+            double_quote = true;
+          else if (c == ' ')
+            break;
+          else
+            redirect_storage[redirect_pos++] = c;
+        }
+
+        i++;
+      }
+
+      redirect_storage[redirect_pos] = '\0';
+      redirect_file = redirect_storage;
+
+      break;
+    }
     else
     {
       args[args_count][arg_pos++] = c;
     }
+
+    // handle_redirection:
+    //   redirect_file;
+    //   // handled here
   }
 
   if (arg_pos > 0)
@@ -271,67 +352,70 @@ void parseRest(char *rest, char *args[])
   args[args_count] = NULL;
 }
 
-void parseCommand(char *command, char *rest)
+char *executeCommand(char *command, char *args[], char *redirect_file)
 {
-  // Parse rest here to handle quotes
-  char *args[100];
-  parseRest(rest, args);
-
-  // Handle echo
-  if (strcmp(command, "echo") == 0)
-  {
-    handleEcho(args);
-    return;
-  }
-
-  // Handle exit
-  if (strcmp(command, "exit") == 0)
-  {
-    exit(EXIT_SUCCESS);
-  }
-
-  // Handle type
-  if (strcmp(command, "type") == 0)
-  {
-    // Check if builtin word
-    if (isBuiltIn(rest))
+    // Handle echo
+    if (strcmp(command, "echo") == 0)
     {
-      printf("%s is a shell builtin\n", rest);
-      return;
+        return handleEcho(args);
     }
-    else if (isInPath(rest))
+
+    // Handle exit
+    if (strcmp(command, "exit") == 0)
     {
-      char rest_location[4096];
-      strcpy(rest_location, path_locations[current_path_count]);
-      strcat(rest_location, "/");
-      strcat(rest_location, rest);
-      printf("%s is %s\n", rest, rest_location);
-      return;
+        exit(EXIT_SUCCESS);
     }
-    else
+
+    // Handle type
+    if (strcmp(command, "type") == 0)
     {
-      printf("%s: not found\n", rest);
-      return;
+        int i = 0;
+
+        while (args[i] != NULL)
+        {
+            char *keyword = args[i];
+
+            if (isBuiltIn(keyword))
+            {
+                printf("%s is a shell builtin\n", keyword);
+            }
+            else if (isInPath(keyword))
+            {
+                char keyword_location[4096];
+
+                strcpy(keyword_location, path_locations[current_path_count]);
+                strcat(keyword_location, "/");
+                strcat(keyword_location, keyword);
+
+                printf("%s is %s\n", keyword, keyword_location);
+            }
+            else
+            {
+                printf("%s: not found\n", keyword);
+            }
+
+            i++;
+        }
+
+        return NULL;
     }
-  }
 
-  // Handle if command in PATH
-  if (isInPath(command))
-  {
-    handlePathExecutable(command, args);
-    return;
-  }
+    // Handle command in PATH
+    if (isInPath(command))
+    {
+        handlePathExecutable(command, args, redirect_file);
+        return NULL;
+    }
 
-  // Check if custom command (implemented in my_commands.c)
-  if (find_command(command))
-  {
-    handleCommand(command, rest);
-    return;
-  }
+    // Handle custom commands
+    if (find_command(command))
+    {
+        return handleCommand(command, args);
+    }
 
-  printf("%s: command not found\n", command);
+    printf("%s: command not found\n", command);
+    return NULL;
 }
-
 int getCommand(char *text, char *command)
 {
   bool inside_single_quotes = false, inside_double_quotes = false;
@@ -413,12 +497,11 @@ int getCommand(char *text, char *command)
   return strlen(text);
 }
 
-void parseText(char *text)
+void parseText(char *text, char *command, char *args[])
 {
-
-  // char* command =
-
-  char command[100];
+  isFileRedirected = false;
+  redirect_file = NULL;
+  redirect_storage[0] = '\0';
 
   int command_size = getCommand(text, command);
   if (command_size == -1)
@@ -426,8 +509,6 @@ void parseText(char *text)
     printf("Something went wrong in command parsing\n");
     return;
   }
-
-  // command[command_size] = '\0';
 
   char *rest;
 
@@ -445,7 +526,7 @@ void parseText(char *text)
     }
   }
 
-  parseCommand(command, rest);
+  parseRest(rest, args);
 }
 
 int main(int argc, char *argv[])
@@ -473,7 +554,18 @@ int main(int argc, char *argv[])
       break;
     }
     text[strcspn(text, "\n")] = '\0';
-    parseText(text);
+
+    char command[100];
+    char *args[100];
+
+    parseText(text, command, args);
+
+    char *output = executeCommand(command, args, redirect_file);
+
+    if (output != NULL && !isFileRedirected)
+    {
+      printf("%s\n", output);
+    }
   }
 
   return 0;

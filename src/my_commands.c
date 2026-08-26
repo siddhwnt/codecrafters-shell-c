@@ -13,11 +13,13 @@ char program_dir[4096];
 bool isDirectoryExists(const char *path)
 {
     struct stat sb;
+
     if (stat(path, &sb) == 0 && S_ISDIR(sb.st_mode))
     {
-        return true; // Directory exists
+        return true;
     }
-    return false; // Does not exist or is not a directory
+
+    return false;
 }
 
 void handle_pwd(char *args[])
@@ -34,6 +36,8 @@ void handle_cd(char *args[])
         arg_count++;
     }
 
+    // args[0] = "cd"
+    // args[1] = directory
     if (arg_count > 2)
     {
         printf("cd: too many arguments\n");
@@ -45,7 +49,7 @@ void handle_cd(char *args[])
     // cd with no argument
     if (arg_count == 1)
     {
-        directory = program_dir;
+        directory = getenv("HOME");
     }
     else
     {
@@ -64,13 +68,16 @@ void handle_cd(char *args[])
         return;
     }
 
-    getcwd(program_dir, sizeof(program_dir));
+    if (getcwd(program_dir, sizeof(program_dir)) == NULL)
+    {
+        perror("cd");
+    }
 }
-
 
 Command my_commands[] = {
     {"pwd", handle_pwd},
-    {"cd", handle_cd}};
+    {"cd", handle_cd}
+};
 
 #define MY_COMMANDS_COUNT (sizeof(my_commands) / sizeof(my_commands[0]))
 
@@ -83,32 +90,20 @@ bool find_command(char *command)
             return true;
         }
     }
+
     return false;
 }
 
-void handleCommand(char *command, char *rest)
+char *handleCommand(char *command, char *args[])
 {
-    char *args[100];
-    int argc = 0;
-
-    args[argc++] = command;
-
-    char *token = strtok(rest, " ");
-
-    while (token != NULL && argc < 99)
-    {
-        args[argc++] = token;
-        token = strtok(NULL, " ");
-    }
-
-    args[argc] = NULL;
-
     for (int i = 0; i < MY_COMMANDS_COUNT; i++)
     {
         if (strcmp(my_commands[i].name, command) == 0)
         {
             my_commands[i].handler(args);
-            return;
+            return NULL;
         }
     }
+
+    return NULL;
 }

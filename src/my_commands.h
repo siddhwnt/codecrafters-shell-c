@@ -12,4 +12,4 @@ void handle_pwd(char *args[]);
 void handle_cd(char *args[]);
 bool find_command(char *command);
 
-void handleCommand(char *command, char *rest);
+char *handleCommand(char *command, char *args[]);
