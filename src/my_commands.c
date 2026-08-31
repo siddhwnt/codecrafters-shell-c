@@ -77,7 +77,7 @@ char *handle_cd(char *args[])
         }
 
         snprintf(error, 4096,
-                 "cd: %s: No such file or directory",
+                 "cd: %s: No such file or directory\n",
                  directory);
 
         return error;
