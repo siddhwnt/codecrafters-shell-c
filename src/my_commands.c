@@ -42,17 +42,17 @@ char *handle_cd(char *args[])
     while (args[arg_count] != NULL)
         arg_count++;
 
-    if (arg_count > 2)
+    if (arg_count > 1)
     {
         return "cd: too many arguments";
     }
 
     char *directory;
 
-    if (arg_count == 1)
+    if (arg_count == 0)
         directory = getenv("HOME");
     else
-        directory = args[1];
+        directory = args[0];
 
     if (strcmp(directory, "~") == 0)
         directory = getenv("HOME");
@@ -60,9 +60,11 @@ char *handle_cd(char *args[])
     if (chdir(directory) != 0)
     {
         static char error[4096];
+
         snprintf(error, sizeof(error),
                  "cd: %s: No such file or directory",
                  directory);
+
         return error;
     }
 
@@ -70,7 +72,6 @@ char *handle_cd(char *args[])
 
     return NULL;
 }
-
 bool find_command(char *command)
 {
     for (int i = 0; i < MY_COMMANDS_COUNT; i++)
