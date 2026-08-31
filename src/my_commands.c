@@ -44,7 +44,16 @@ char *handle_cd(char *args[])
 
     if (arg_count > 1)
     {
-        return "cd: too many arguments";
+        char *error = malloc(4096);
+
+        if (error == NULL)
+        {
+            perror("malloc");
+            return NULL;
+        }
+
+        strcpy(error, "cd: too many arguments");
+        return error;
     }
 
     char *directory;
@@ -59,9 +68,15 @@ char *handle_cd(char *args[])
 
     if (chdir(directory) != 0)
     {
-        static char error[4096];
+        char *error = malloc(4096);
 
-        snprintf(error, sizeof(error),
+        if (error == NULL)
+        {
+            perror("malloc");
+            return NULL;
+        }
+
+        snprintf(error, 4096,
                  "cd: %s: No such file or directory",
                  directory);
 
