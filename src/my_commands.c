@@ -30,9 +30,19 @@ bool isDirectoryExists(const char *path)
     return false;
 }
 
-char* handle_pwd(char *args[])
+char *handle_pwd(char *args[])
 {
-    return program_dir;
+    char *output = malloc(4096);
+
+    if (output == NULL)
+    {
+        perror("malloc");
+        return NULL;
+    }
+
+    strcpy(output, program_dir);
+
+    return output;
 }
 
 char *handle_cd(char *args[])
