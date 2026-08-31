@@ -140,7 +140,7 @@ char *handleEcho(char *args[])
 
     i++;
   }
-
+  strcat(output, "\n");
   return output;
 }
 
@@ -652,7 +652,6 @@ int main(int argc, char *argv[])
       else
       {
         printf("%s", output);
-        printf("\n");
       }
       
       free(output);
