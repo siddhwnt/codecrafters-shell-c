@@ -33,11 +33,11 @@ int current_path_count;
 bool isFileRedirected = false;
 char *redirect_file = NULL;
 static char redirect_storage[4096];
+#define OUTPUT_SIZE 4096
 
 void setUpPath()
 {
   path = getenv("PATH");
-  int path_size = strlen(path);
 
   strcpy(path_copy, path);
 
@@ -94,7 +94,6 @@ bool isExecutable(char *filepath)
 bool isInPath(char *rest)
 {
   // printf("Checking in PATH\n");
-  int rest_size = strlen(rest);
   current_path_count = 0;
 
   for (int j = 0; j < path_count; j++)
@@ -105,7 +104,6 @@ bool isInPath(char *rest)
     strcat(rest_location, "/");
     strcat(rest_location, rest);
 
-    int current_size = strlen(path_locations[j]);
     // printf("Path: %s\n", path_locations[j]);
     // printf("Checking : %s\n", rest_location);
 
@@ -121,26 +119,32 @@ bool isInPath(char *rest)
 // Handlers
 char *handleEcho(char *args[])
 {
-    static char output[4096];
-    output[0] = '\0';
+  char *output = malloc(OUTPUT_SIZE);
 
-    int i = 0;
+  if (output == NULL)
+  {
+    perror("malloc");
+    return NULL;
+  }
 
-    while (args[i] != NULL)
-    {
-        strcat(output, args[i]);
+  output[0] = '\0';
 
-        if (args[i + 1] != NULL)
-            strcat(output, " ");
+  int i = 0;
 
-        i++;
-    }
+  while (args[i] != NULL)
+  {
+    strcat(output, args[i]);
 
-    return output;
+    if (args[i + 1] != NULL)
+      strcat(output, " ");
+
+    i++;
+  }
+
+  return output;
 }
 
-
-void handlePathExecutable(char *command, char *args[], char *redirect_file)
+char *handlePathExecutable(char *command, char *args[])
 {
   char command_location[4096];
 
@@ -161,39 +165,74 @@ void handlePathExecutable(char *command, char *args[], char *redirect_file)
 
   argv[i + 1] = NULL;
 
+  int pipe_fd[2];
+  // fd[0] -> read
+  // fd[1] -> write
+
+  if (pipe(pipe_fd) == -1)
+  {
+    perror("pipe");
+    exit(EXIT_FAILURE);
+  }
+
   int command_id = fork();
+
+  if (command_id == -1)
+  {
+    perror("fork");
+    close(pipe_fd[0]);
+    close(pipe_fd[1]);
+    return NULL;
+  }
 
   if (command_id == 0)
   {
-    if (redirect_file != NULL)
+    // Child
+    // Process will only write
+    close(pipe_fd[0]);
+    if (dup2(pipe_fd[1], STDOUT_FILENO) == -1)
     {
-      int fd = open(redirect_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-
-      if (fd == -1)
-      {
-        perror("open");
-        exit(EXIT_FAILURE);
-      }
-
-      if (dup2(fd, STDOUT_FILENO) == -1)
-      {
-        perror("dup2");
-        close(fd);
-        exit(EXIT_FAILURE);
-      }
-
-      close(fd);
+      perror("dup2");
+      exit(EXIT_FAILURE);
     }
+
+    close(pipe_fd[1]);
 
     execv(command_location, argv);
 
     perror("execv");
     exit(EXIT_FAILURE);
   }
-  else
+
+  // Parent
+  // Process will read
+  close(pipe_fd[1]);
+
+  ssize_t total = 0;
+  ssize_t bytes_read;
+  char *output = malloc(OUTPUT_SIZE);
+
+  if (output == NULL)
   {
-    wait(NULL);
+    perror("malloc");
+    close(pipe_fd[0]);
+    waitpid(command_id, NULL, 0);
+    return NULL;
   }
+
+  while ((total < OUTPUT_SIZE - 1) &&
+         (bytes_read = read(pipe_fd[0],
+                            output + total,
+                            OUTPUT_SIZE - 1 - total)) > 0)
+  {
+    total += bytes_read;
+  }
+
+  output[total] = '\0';
+  close(pipe_fd[0]);
+  waitpid(command_id, NULL, 0);
+
+  return output;
 }
 
 void parseRest(char *rest, char *args[])
@@ -283,9 +322,27 @@ void parseRest(char *rest, char *args[])
       args[args_count][arg_pos++] = rest[++i];
     }
 
-    else if (c == '>')
+    else if (c == '>' || c == '1')
     {
       isFileRedirected = true;
+      if (c == '1')
+      {
+        int j = i + 1;
+
+        // Allow spaces between 1 and >
+        while (rest[j] == ' ')
+          j++;
+
+        if (rest[j] != '>')
+        {
+          args[args_count][arg_pos++] = c;
+          continue;
+        }
+
+        i = j;
+      }
+
+      // rest[i] = '>' currently, so skip
       i++;
 
       while (rest[i] == ' ')
@@ -319,8 +376,6 @@ void parseRest(char *rest, char *args[])
             single = true;
           else if (c == '"')
             double_quote = true;
-          else if (c == ' ')
-            break;
           else
             redirect_storage[redirect_pos++] = c;
         }
@@ -337,10 +392,6 @@ void parseRest(char *rest, char *args[])
     {
       args[args_count][arg_pos++] = c;
     }
-
-    // handle_redirection:
-    //   redirect_file;
-    //   // handled here
   }
 
   if (arg_pos > 0)
@@ -352,70 +403,90 @@ void parseRest(char *rest, char *args[])
   args[args_count] = NULL;
 }
 
-char *executeCommand(char *command, char *args[], char *redirect_file)
+char *handleType(char *args[])
 {
-    // Handle echo
-    if (strcmp(command, "echo") == 0)
-    {
-        return handleEcho(args);
-    }
+  char *output = malloc(4096);
 
-    // Handle exit
-    if (strcmp(command, "exit") == 0)
-    {
-        exit(EXIT_SUCCESS);
-    }
-
-    // Handle type
-    if (strcmp(command, "type") == 0)
-    {
-        int i = 0;
-
-        while (args[i] != NULL)
-        {
-            char *keyword = args[i];
-
-            if (isBuiltIn(keyword))
-            {
-                printf("%s is a shell builtin\n", keyword);
-            }
-            else if (isInPath(keyword))
-            {
-                char keyword_location[4096];
-
-                strcpy(keyword_location, path_locations[current_path_count]);
-                strcat(keyword_location, "/");
-                strcat(keyword_location, keyword);
-
-                printf("%s is %s\n", keyword, keyword_location);
-            }
-            else
-            {
-                printf("%s: not found\n", keyword);
-            }
-
-            i++;
-        }
-
-        return NULL;
-    }
-
-    // Handle command in PATH
-    if (isInPath(command))
-    {
-        handlePathExecutable(command, args, redirect_file);
-        return NULL;
-    }
-
-    // Handle custom commands
-    if (find_command(command))
-    {
-        return handleCommand(command, args);
-    }
-
-    printf("%s: command not found\n", command);
+  if (output == NULL)
+  {
+    perror("malloc");
     return NULL;
+  }
+
+  output[0] = '\0';
+
+  int i = 0;
+
+  while (args[i] != NULL)
+  {
+    char *keyword = args[i];
+
+    if (isBuiltIn(keyword))
+    {
+      strcat(output, keyword);
+      strcat(output, " is a shell builtin\n");
+    }
+    else if (isInPath(keyword))
+    {
+      char keyword_location[4096];
+
+      strcpy(keyword_location, path_locations[current_path_count]);
+      strcat(keyword_location, "/");
+      strcat(keyword_location, keyword);
+
+      strcat(output, keyword);
+      strcat(output, " is ");
+      strcat(output, keyword_location);
+      strcat(output, "\n");
+    }
+    else
+    {
+      strcat(output, keyword);
+      strcat(output, ": not found\n");
+    }
+
+    i++;
+  }
+
+  return output;
 }
+
+char *executeCommand(char *command, char *args[])
+{
+  // Handle echo
+  if (strcmp(command, "echo") == 0)
+  {
+    return handleEcho(args);
+  }
+
+  // Handle exit
+  if (strcmp(command, "exit") == 0)
+  {
+    exit(EXIT_SUCCESS);
+  }
+
+  // Handle type
+  if (strcmp(command, "type") == 0)
+  {
+    return handleType(args);
+  }
+
+  // Handle command in PATH
+  if (isInPath(command))
+  {
+    return handlePathExecutable(command, args);
+  }
+
+  // Handle custom commands
+  if (find_command(command))
+  {
+    return handleCommand(command, args);
+  }
+
+  printf("%s: command not found\n", command);
+  return NULL;
+}
+
 int getCommand(char *text, char *command)
 {
   bool inside_single_quotes = false, inside_double_quotes = false;
@@ -560,11 +631,31 @@ int main(int argc, char *argv[])
 
     parseText(text, command, args);
 
-    char *output = executeCommand(command, args, redirect_file);
+    char *output = executeCommand(command, args);
 
-    if (output != NULL && !isFileRedirected)
+    if (output != NULL)
     {
-      printf("%s\n", output);
+      if (redirect_file != NULL)
+      {
+        FILE *fptr_redirected = fopen(redirect_file, "w");
+
+        if (fptr_redirected == NULL)
+        {
+          perror("fopen");
+        }
+        else
+        {
+          fprintf(fptr_redirected, "%s", output);
+          fclose(fptr_redirected);
+        }
+      }
+      else
+      {
+        printf("%s", output);
+        printf("\n");
+      }
+      
+      free(output);
     }
   }
 

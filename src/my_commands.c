@@ -10,6 +10,14 @@
 
 char program_dir[4096];
 
+
+Command my_commands[] = {
+    {"pwd", handle_pwd},
+    {"cd", handle_cd}
+};
+
+#define MY_COMMANDS_COUNT (sizeof(my_commands) / sizeof(my_commands[0]))
+
 bool isDirectoryExists(const char *path)
 {
     struct stat sb;
@@ -22,64 +30,46 @@ bool isDirectoryExists(const char *path)
     return false;
 }
 
-void handle_pwd(char *args[])
+char* handle_pwd(char *args[])
 {
-    printf("%s\n", program_dir);
+    return program_dir;
 }
 
-void handle_cd(char *args[])
+char *handle_cd(char *args[])
 {
     int arg_count = 0;
 
     while (args[arg_count] != NULL)
-    {
         arg_count++;
-    }
 
-    // args[0] = "cd"
-    // args[1] = directory
     if (arg_count > 2)
     {
-        printf("cd: too many arguments\n");
-        return;
+        return "cd: too many arguments";
     }
 
     char *directory;
 
-    // cd with no argument
     if (arg_count == 1)
-    {
         directory = getenv("HOME");
-    }
     else
-    {
         directory = args[1];
-    }
 
-    // cd ~
     if (strcmp(directory, "~") == 0)
-    {
         directory = getenv("HOME");
-    }
 
     if (chdir(directory) != 0)
     {
-        printf("cd: %s: No such file or directory\n", directory);
-        return;
+        static char error[4096];
+        snprintf(error, sizeof(error),
+                 "cd: %s: No such file or directory",
+                 directory);
+        return error;
     }
 
-    if (getcwd(program_dir, sizeof(program_dir)) == NULL)
-    {
-        perror("cd");
-    }
+    getcwd(program_dir, sizeof(program_dir));
+
+    return NULL;
 }
-
-Command my_commands[] = {
-    {"pwd", handle_pwd},
-    {"cd", handle_cd}
-};
-
-#define MY_COMMANDS_COUNT (sizeof(my_commands) / sizeof(my_commands[0]))
 
 bool find_command(char *command)
 {
@@ -100,8 +90,7 @@ char *handleCommand(char *command, char *args[])
     {
         if (strcmp(my_commands[i].name, command) == 0)
         {
-            my_commands[i].handler(args);
-            return NULL;
+            return my_commands[i].handler(args);
         }
     }
 
