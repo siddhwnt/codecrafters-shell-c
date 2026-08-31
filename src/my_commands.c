@@ -42,6 +42,7 @@ char *handle_pwd(char *args[])
 
     strcpy(output, program_dir);
 
+    strcat(output, "\n");
     return output;
 }
 
