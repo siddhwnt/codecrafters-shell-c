@@ -30,9 +30,13 @@ int path_count = 0;
 int current_path_count;
 
 // File redirection
-bool isFileRedirected = false;
+
 char *redirect_file = NULL;
 static char redirect_storage[4096];
+
+char *error_redirect_file = NULL;
+static char error_redirect_storage[4096];
+
 #define OUTPUT_SIZE 4096
 
 void setUpPath()
@@ -198,6 +202,18 @@ char *handlePathExecutable(char *command, char *args[])
 
     close(pipe_fd[1]);
 
+    if (error_redirect_file != NULL)
+    {
+      int fd = open(error_redirect_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+      if (fd == -1)
+      {
+        perror("open");
+        exit(EXIT_FAILURE);
+      }
+      dup2(fd, STDERR_FILENO);
+      close(fd);
+    }
+
     execv(command_location, argv);
 
     perror("execv");
@@ -231,6 +247,55 @@ char *handlePathExecutable(char *command, char *args[])
   output[total] = '\0';
   close(pipe_fd[0]);
   waitpid(command_id, NULL, 0);
+
+  return output;
+}
+
+char *executeBuiltin(char *command, char *args[])
+{
+
+  int stdout_default = -1;
+  int stderr_default = -1;
+
+  if (redirect_file != NULL)
+  {
+    int fd = open(redirect_file, O_WRONLY | O_TRUNC | O_CREAT, 0644);
+    if (fd == -1)
+    {
+      perror("open");
+      exit(EXIT_FAILURE);
+    }
+    stdout_default = dup(STDOUT_FILENO);
+    dup2(fd, STDOUT_FILENO);
+    close(fd);
+  }
+
+  if (error_redirect_file != NULL)
+  {
+    int fd = open(error_redirect_file, O_WRONLY | O_TRUNC | O_CREAT, 0644);
+    if (fd == -1)
+    {
+      perror("open");
+      exit(EXIT_FAILURE);
+    }
+    stderr_default = dup(STDERR_FILENO);
+    dup2(fd, STDERR_FILENO);
+    close(fd);
+  }
+
+  char *output = handleCommand(command, args);
+
+  if (stdout_default != -1)
+  {
+    dup2(stdout_default, STDOUT_FILENO);
+    close(stdout_default);
+  }
+
+  if (stderr_default != -1)
+  {
+    dup2(stderr_default, STDERR_FILENO);
+    close(stderr_default);
+  }
 
   return output;
 }
@@ -322,14 +387,12 @@ void parseRest(char *rest, char *args[])
       args[args_count][arg_pos++] = rest[++i];
     }
 
-    else if (c == '>' || c == '1')
+    else if (c == '>' || c == '1' || c == '2')
     {
-      isFileRedirected = true;
-      if (c == '1')
+      if (c == '1' || c == '2')
       {
         int j = i + 1;
 
-        // Allow spaces between 1 and >
         while (rest[j] == ' ')
           j++;
 
@@ -339,55 +402,94 @@ void parseRest(char *rest, char *args[])
           continue;
         }
 
+        // We found 1> or 2>
+        bool is_stderr = (c == '2');
+
         i = j;
-      }
 
-      // rest[i] = '>' currently, so skip
-      i++;
-
-      while (rest[i] == ' ')
+        // Skip >
         i++;
 
-      int redirect_pos = 0;
-      bool single = false;
-      bool double_quote = false;
+        while (rest[i] == ' ')
+          i++;
 
-      while (rest[i] != '\0')
-      {
-        c = rest[i];
+        char *storage;
+        int redirect_pos = 0;
 
-        if (single)
-        {
-          if (c == '\'')
-            single = false;
-          else
-            redirect_storage[redirect_pos++] = c;
-        }
-        else if (double_quote)
-        {
-          if (c == '"')
-            double_quote = false;
-          else
-            redirect_storage[redirect_pos++] = c;
-        }
+        if (is_stderr)
+          storage = error_redirect_storage;
         else
+          storage = redirect_storage;
+
+        bool single = false;
+        bool double_quote = false;
+
+        while (rest[i] != '\0')
         {
-          if (c == '\'')
-            single = true;
-          else if (c == '"')
-            double_quote = true;
+          c = rest[i];
+
+          if (single)
+          {
+            if (c == '\'')
+              single = false;
+            else
+              storage[redirect_pos++] = c;
+          }
+          else if (double_quote)
+          {
+            if (c == '"')
+              double_quote = false;
+            else
+              storage[redirect_pos++] = c;
+          }
           else
-            redirect_storage[redirect_pos++] = c;
+          {
+            if (c == '\'')
+              single = true;
+            else if (c == '"')
+              double_quote = true;
+            else if (c == ' ')
+              break; 
+            else 
+              storage[redirect_pos++] = c;
+          }
+
+          i++;
         }
 
-        i++;
+        storage[redirect_pos] = '\0';
+
+        if (is_stderr)
+          error_redirect_file = storage;
+        else
+          redirect_file = storage;
+
       }
 
-      redirect_storage[redirect_pos] = '\0';
-      redirect_file = redirect_storage;
+      // Plain >
+      else
+      {
 
-      break;
+        i++;
+
+        while (rest[i] == ' ')
+          i++;
+
+        int redirect_pos = 0;
+
+        while (rest[i] != '\0')
+        {
+          redirect_storage[redirect_pos++] = rest[i];
+          i++;
+        }
+
+        redirect_storage[redirect_pos] = '\0';
+        redirect_file = redirect_storage;
+
+        break;
+      }
     }
+
     else
     {
       args[args_count][arg_pos++] = c;
@@ -480,7 +582,7 @@ char *executeCommand(char *command, char *args[])
   // Handle custom commands
   if (find_command(command))
   {
-    return handleCommand(command, args);
+    return executeBuiltin(command, args);
   }
 
   printf("%s: command not found\n", command);
@@ -570,9 +672,10 @@ int getCommand(char *text, char *command)
 
 void parseText(char *text, char *command, char *args[])
 {
-  isFileRedirected = false;
   redirect_file = NULL;
+  error_redirect_file = NULL;
   redirect_storage[0] = '\0';
+  error_redirect_storage[0] = '\0';
 
   int command_size = getCommand(text, command);
   if (command_size == -1)
@@ -653,7 +756,7 @@ int main(int argc, char *argv[])
       {
         printf("%s", output);
       }
-      
+
       free(output);
     }
   }

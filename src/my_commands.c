@@ -10,11 +10,9 @@
 
 char program_dir[4096];
 
-
 Command my_commands[] = {
     {"pwd", handle_pwd},
-    {"cd", handle_cd}
-};
+    {"cd", handle_cd}};
 
 #define MY_COMMANDS_COUNT (sizeof(my_commands) / sizeof(my_commands[0]))
 
@@ -55,16 +53,8 @@ char *handle_cd(char *args[])
 
     if (arg_count > 1)
     {
-        char *error = malloc(4096);
-
-        if (error == NULL)
-        {
-            perror("malloc");
-            return NULL;
-        }
-
-        strcpy(error, "cd: too many arguments");
-        return error;
+        fprintf(stderr, "cd: too many arguments\n");
+        return NULL;
     }
 
     char *directory;
@@ -87,11 +77,8 @@ char *handle_cd(char *args[])
             return NULL;
         }
 
-        snprintf(error, 4096,
-                 "cd: %s: No such file or directory\n",
-                 directory);
-
-        return error;
+        fprintf(stderr, "cd: %s: No such file or directory\n", directory);
+        return NULL;
     }
 
     getcwd(program_dir, sizeof(program_dir));
